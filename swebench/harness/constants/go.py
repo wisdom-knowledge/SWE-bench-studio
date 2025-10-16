@@ -251,7 +251,10 @@ SPECS_GORM = {
 SPECS_JSONITERATOR = {
     "json-iterator__go-128": {
         "docker_specs": {"go_version": "1.21.13"},
-        "install": ["go mod tidy"],
+        "install": [
+            "go mod init github.com/json-iterator/go",
+            "go mod tidy"
+        ],
         "test_cmd": ['go test -v -count=1 -run "^(Test_bad_case|Test_iterator_use_number|Test_iterator_without_number)$" .'],
     },
 }
