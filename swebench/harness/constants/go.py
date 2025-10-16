@@ -257,6 +257,13 @@ SPECS_JSONITERATOR = {
         ],
         "test_cmd": ['go test -v -count=1 -run "^(Test_bad_case|Test_iterator_use_number|Test_iterator_without_number)$" .'],
     },
+    "json-iterator__go-477": {
+        "docker_specs": {"go_version": "1.21.13"},
+        "install": [
+            "go mod tidy"
+        ],
+        "test_cmd": ['go test -v -count=1 -run "^(Test_read_uint64_invalid|Test_read_int32_array|Test_read_int64_array|Test_wrap_int|Test_write_val_int|Test_float_as_int|TestIterator_ReadInt_chunkedInput|)$" .'],
+    },
 }
 
 
