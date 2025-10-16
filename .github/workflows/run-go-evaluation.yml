@@ -3,7 +3,7 @@ name: Run Go Evaluation
 on:
   push:
     branches:
-      - feat/go
+      - test
 
 jobs:
   evaluate:

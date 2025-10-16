@@ -40,6 +40,19 @@ jobs:
           --path_tasks ./tasks \
           ${{ github.event.inputs.max_pulls && format('--max_pulls {0}', github.event.inputs.max_pulls) || '' }}
 
+    - name: Split task instances into individual files
+      run: |
+        mkdir -p ./tasks_split
+        # Find all .jsonl files in tasks directory and split them
+        for task_file in ./tasks/*.jsonl; do
+          if [ -f "$task_file" ]; then
+            echo "Splitting $task_file..."
+            python swebench/collect/select_instance.py \
+              --source_file "$task_file" \
+              --output_dir ./tasks_split
+          fi
+        done
+
     - name: Upload PRs artifact
       uses: actions/upload-artifact@v4
       with:
@@ -51,3 +64,9 @@ jobs:
       with:
         name: task-data
         path: ./tasks
+
+    - name: Upload Split Tasks artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: task-data-split
+        path: ./tasks_split
