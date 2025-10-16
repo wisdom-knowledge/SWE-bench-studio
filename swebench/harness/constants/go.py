@@ -262,7 +262,7 @@ SPECS_JSONITERATOR = {
         "install": [
             "go mod tidy"
         ],
-        "test_cmd": ['go test -v -count=1 -run "^(Test_read_uint64_invalid|Test_read_int32_array|Test_read_int64_array|Test_wrap_int|Test_write_val_int|Test_float_as_int|TestIterator_ReadInt_chunkedInput|)$" .'],
+        "test_cmd": ['go test -v -count=1 -run "^(Test_read_uint64_invalid|Test_read_int32_array|Test_read_int64_array|Test_wrap_int|Test_write_val_int|Test_float_as_int|TestIterator_ReadInt_chunkedInput)$" ./misc_tests/'],
     },
 }
 
