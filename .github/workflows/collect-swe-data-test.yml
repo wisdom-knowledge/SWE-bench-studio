@@ -1,6 +1,9 @@
 name: Collect SWE-bench Data
 
 on:
+  push:
+    branches:
+      - feat/go
   workflow_dispatch:
     inputs:
       repo_name:
@@ -31,14 +34,22 @@ jobs:
 
     - name: Run data collection
       env:
+        # 💡 在这里硬编码你的测试参数
         GITHUB_TOKENS: ${{ secrets.GITHUB_TOKEN }}
+        TEST_REPO_NAME: "go-gorm/gorm"  # <--- 修改点 1：设置要测试的仓库名
+        TEST_MAX_PULLS: "5000"           # <--- 修改点 2：设置一个测试用的最大 PR 数量（可选）
       run: |
+        # 准备命令行参数
+        ARGS="--repos $TEST_REPO_NAME --path_prs ./prs --path_tasks ./tasks"
+        
+        # 如果设置了 TEST_MAX_PULLS，就把它加到参数里
+        if [ -n "$TEST_MAX_PULLS" ]; then
+          ARGS="$ARGS --max_pulls $TEST_MAX_PULLS"
+        fi
+        
+        # 创建目录并执行脚本
         mkdir -p ./prs ./tasks
-        python swebench/collect/get_tasks_pipeline.py \
-          --repos ${{ github.event.inputs.repo_name }} \
-          --path_prs ./prs \
-          --path_tasks ./tasks \
-          ${{ github.event.inputs.max_pulls && format('--max_pulls {0}', github.event.inputs.max_pulls) || '' }}
+        python swebench/collect/get_tasks_pipeline.py $ARGS
 
     - name: Upload PRs artifact
       uses: actions/upload-artifact@v4
