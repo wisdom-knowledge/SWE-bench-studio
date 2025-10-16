@@ -54,6 +54,12 @@ jobs:
         name: logs-${{ steps.instance_info.outputs.instance_id }}-none
         path: logs/
 
+    - name: Backup pre-patch logs for comparison
+      if: always()
+      run: |
+        mkdir -p logs_backup
+        cp -r logs/* logs_backup/
+
     - name: Clean logs for next run
       run: rm -rf logs/*
 
@@ -73,3 +79,120 @@ jobs:
       with:
         name: logs-${{ steps.instance_info.outputs.instance_id }}-gold
         path: logs/
+    
+    - name: Generate enriched dataset with FAIL_TO_PASS and PASS_TO_PASS
+      if: always()
+      run: |
+        python - <<'EOF'
+        import json
+        import os
+        from pathlib import Path
+        
+        instance_id = "${{ steps.instance_info.outputs.instance_id }}"
+        run_id = "${{ github.run_id }}"
+        
+        # Read original task file
+        with open('${{ env.TASK_FILE_PATH }}', 'r') as f:
+            task_data = json.load(f)
+        
+        # Read pre-patch report (none) from backup
+        pre_report_path = Path(f"logs_backup/run_evaluation/{run_id}-{instance_id}-none/empty/{instance_id}/report.json")
+        post_report_path = Path(f"logs/run_evaluation/{run_id}-{instance_id}-gold/gold/{instance_id}/report.json")
+        
+        fail_to_pass = []
+        pass_to_pass = []
+        
+        if pre_report_path.exists() and post_report_path.exists():
+            with open(pre_report_path) as f:
+                pre_report = json.load(f)
+            with open(post_report_path) as f:
+                post_report = json.load(f)
+            
+            # Parse test outputs to extract test names
+            pre_test_output = Path(f"logs_backup/run_evaluation/{run_id}-{instance_id}-none/empty/{instance_id}/test_output.txt")
+            post_test_output = Path(f"logs/run_evaluation/{run_id}-{instance_id}-gold/gold/{instance_id}/test_output.txt")
+            
+            if pre_test_output.exists() and post_test_output.exists():
+                # Parse pre-patch test results
+                pre_tests = {"passed": [], "failed": []}
+                with open(pre_test_output) as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith("--- PASS:"):
+                            test_name = line.split("--- PASS:")[1].split("(")[0].strip()
+                            pre_tests["passed"].append(test_name)
+                        elif line.startswith("--- FAIL:"):
+                            test_name = line.split("--- FAIL:")[1].split("(")[0].strip()
+                            pre_tests["failed"].append(test_name)
+                
+                # Parse post-patch test results
+                post_tests = {"passed": [], "failed": []}
+                with open(post_test_output) as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith("--- PASS:"):
+                            test_name = line.split("--- PASS:")[1].split("(")[0].strip()
+                            post_tests["passed"].append(test_name)
+                        elif line.startswith("--- FAIL:"):
+                            test_name = line.split("--- FAIL:")[1].split("(")[0].strip()
+                            post_tests["failed"].append(test_name)
+                
+                # Determine FAIL_TO_PASS: tests that failed pre-patch but passed post-patch
+                for test in pre_tests["failed"]:
+                    if test in post_tests["passed"]:
+                        fail_to_pass.append(test)
+                
+                # Determine PASS_TO_PASS: tests that passed both pre and post patch
+                for test in pre_tests["passed"]:
+                    if test in post_tests["passed"]:
+                        pass_to_pass.append(test)
+                
+                print(f"FAIL_TO_PASS: {fail_to_pass}")
+                print(f"PASS_TO_PASS: {pass_to_pass}")
+        
+        # Add FAIL_TO_PASS and PASS_TO_PASS to task data
+        task_data["FAIL_TO_PASS"] = fail_to_pass
+        task_data["PASS_TO_PASS"] = pass_to_pass
+        
+        # Save enriched data in JSONL format (single line JSON)
+        output_dir = Path("enriched_data")
+        output_dir.mkdir(exist_ok=True)
+        output_file = output_dir / f"{instance_id}_enriched.jsonl"
+        
+        with open(output_file, 'w') as f:
+            json.dump(task_data, f)
+            f.write('\n')
+        
+        print(f"\nEnriched dataset saved to: {output_file}")
+        print(f"\nFAIL_TO_PASS tests: {fail_to_pass}")
+        print(f"PASS_TO_PASS tests: {pass_to_pass}")
+        print(f"\nFull enriched data:")
+        print(json.dumps(task_data, indent=2))
+        EOF
+      shell: bash
+    
+    - name: Upload Enriched Dataset
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: enriched-dataset-${{ steps.instance_info.outputs.instance_id }}
+        path: enriched_data/
+    
+    - name: Summary
+      if: always()
+      run: |
+        echo "## 🎉 Evaluation Complete!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Instance: \`${{ steps.instance_info.outputs.instance_id }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Artifacts Generated:" >> $GITHUB_STEP_SUMMARY
+        echo "1. **Pre-patch logs** - logs-${{ steps.instance_info.outputs.instance_id }}-none" >> $GITHUB_STEP_SUMMARY
+        echo "2. **Post-patch logs** - logs-${{ steps.instance_info.outputs.instance_id }}-gold" >> $GITHUB_STEP_SUMMARY
+        echo "3. **📊 Enriched Dataset** - enriched-dataset-${{ steps.instance_info.outputs.instance_id }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "The enriched dataset includes:" >> $GITHUB_STEP_SUMMARY
+        echo "- Original task data" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ \`FAIL_TO_PASS\`: Tests that failed before patch and passed after" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ \`PASS_TO_PASS\`: Tests that passed both before and after patch" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Download the artifacts to see the complete results!" >> $GITHUB_STEP_SUMMARY
