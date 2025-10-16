@@ -1,6 +1,9 @@
 name: Collect SWE-bench Data
 
 on:
+  push: # << 临时加上这个
+    branches:
+      - feat/go # 最好指定只在你当前分支上触发
   workflow_dispatch:
     inputs:
       repo_name:
