@@ -233,6 +233,21 @@ SPECS_GIN = {
     },
 }
 
+SPECS_GORM = {
+    # Replace with instance_ids from your gorm-task-instances.jsonl file
+    "go-gorm__gorm-7492": {
+        "docker_specs": {"go_version": "1.21"}, # 根据PR的实际情况调整Go版本
+        "install": ["go mod tidy"],
+        "test_cmd": ["go test -v ./tests -run ^TestBeforeUpdateStatementChanged$"],
+    },
+    "INSTANCE_ID_2": {
+        "docker_specs": {"go_version": "1.21"},
+        "install": ["go mod tidy"],
+        "test_cmd": ["go test -v -run TestName ./..."], # Replace with the specific test for this PR
+    },
+    # Add more entries for each task instance
+}
+
 
 MAP_REPO_VERSION_TO_SPECS_GO = {
     "caddyserver/caddy": SPECS_CADDY,
@@ -240,6 +255,7 @@ MAP_REPO_VERSION_TO_SPECS_GO = {
     "prometheus/prometheus": SPECS_PROMETHEUS,
     "gohugoio/hugo": SPECS_HUGO,
     "gin-gonic/gin": SPECS_GIN,
+    "go-gorm/gorm": SPECS_GORM,
 }
 
 # Constants - Repository Specific Installation Instructions

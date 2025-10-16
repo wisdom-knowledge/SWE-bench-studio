@@ -1,0 +1,72 @@
+name: Run Go Evaluation
+
+on:
+  push:
+    branches:
+      - feat/go
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    env:
+      TASK_FILE_PATH: data-go/gorm/tasks/go-gorm__gorm-7492.jsonl
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install .
+
+    - name: Read instance info
+      id: instance_info
+      run: |
+        import json
+        with open('${{ env.TASK_FILE_PATH }}', 'r') as f:
+            instance = json.load(f)
+            print(f"::set-output name=instance_id::{instance['instance_id']}")
+      shell: python
+
+    - name: Run Evaluation (pre-patch)
+      run: |
+        # Create an empty prediction file
+        echo '{"instance_id": "${{ steps.instance_info.outputs.instance_id }}", "model_name_or_path": "empty", "model_patch": ""}' > prediction-none.jsonl
+        
+        python -m swebench.harness.run_evaluation \
+          --dataset_name ${{ env.TASK_FILE_PATH }} \
+          --instance_ids "${{ steps.instance_info.outputs.instance_id }}" \
+          --predictions_path prediction-none.jsonl \
+          --run_id "${{ github.run_id }}-${{ steps.instance_info.outputs.instance_id }}-none" \
+          --timeout 900
+    
+    - name: Upload Logs (pre-patch)
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: logs-${{ steps.instance_info.outputs.instance_id }}-none
+        path: logs/
+
+    - name: Clean logs for next run
+      run: rm -rf logs/*
+
+    - name: Run Evaluation (post-patch/gold)
+      run: |
+        python -m swebench.harness.run_evaluation \
+          --dataset_name ${{ env.TASK_FILE_PATH }} \
+          --instance_ids "${{ steps.instance_info.outputs.instance_id }}" \
+          --predictions_path gold \
+          --run_id "${{ github.run_id }}-${{ steps.instance_info.outputs.instance_id }}-gold" \
+          --timeout 900
+          
+    - name: Upload Logs (post-patch/gold)
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: logs-${{ steps.instance_info.outputs.instance_id }}-gold
+        path: logs/

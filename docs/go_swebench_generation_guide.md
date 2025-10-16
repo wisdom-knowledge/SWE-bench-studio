@@ -43,49 +43,89 @@
 
 这是流程中最关键且特定于语言的部分。要获取 `fail_to_pass` 和 `pass_to_pass` 数据，您必须在两种情况下在 SWE-bench 工具链中运行仓库中的测试：应用补丁之前（在 `base_commit` 上）和应用补丁之后。
 
-### 关键先决条件：配置您的仓库
+### 步骤 1：为您的仓库配置评估工具链
 
 评估工具链需要知道如何为您的特定 Go 项目和每个特定任务实例安装依赖项并运行测试。您必须将此配置添加到 `swebench/harness/constants/go.py`。
 
-1.  **编辑 `swebench/harness/constants/go.py`：**
+1.  **将任务实例文件添加到仓库：**
+    将您通过上一个工作流生成的任务实例文件（例如 `gorm-task-instances.jsonl`）添加到您的项目根目录中。您需要将它提交到仓库，以便新的工作流可以访问它。
+
+2.  **编辑 `swebench/harness/constants/go.py`：**
     打开此文件并为您的仓库添加一个新字典。键应为您的仓库的 `owner/name`，值将是一个将 `instance_id`（即 PR 编号）映射到其特定安装和测试命令的字典。
 
-    **示例：** 假设您的仓库是 `my-org/my-app`，并且您正在从 PR `#123` 创建一个任务。您将添加如下条目：
+    **示例** (`go-gorm/gorm`):
+    -   从您的 `.jsonl` 文件中获取 `instance_id` (PR 编号)。
+    -   通过查看对应的 PR，找到需要运行的特定测试命令。
 
     ```python
     # 在 swebench/harness/constants/go.py 中
 
     # ... 现有的 SPECS 字典 ...
 
-    SPECS_MY_APP = {
-        "123": {
-            "docker_specs": {"go_version": "1.23.8"}, # 指定所需的 Go 版本
-            "install": ["go mod download"],          # 安装依赖项的命令
-            "test_cmd": ["go test -v ./... -run TestSpecificFeature"], # 运行相关测试的确切命令
+    SPECS_GORM = {
+        # 用 gorm-task-instances.jsonl 文件中的 instance_id 替换
+        "6850": {
+            "docker_specs": {"go_version": "1.21"},
+            "install": ["go mod tidy"],
+            "test_cmd": ["go test -v -run TestCallbacks ./..."], # 用此 PR 的特定测试替换
         },
-        # ... 来自您仓库的其他 PR ...
+        "6835": {
+            "docker_specs": {"go_version": "1.21"},
+            "install": ["go mod tidy"],
+            "test_cmd": ["go test -v -run TestTransaction ./..."], # 用此 PR 的特定测试替换
+        },
+        # 为每个任务实例添加更多条目
     }
 
     # 将您的新规范添加到主映射中
     MAP_REPO_VERSION_TO_SPECS_GO = {
         "caddyserver/caddy": SPECS_CADDY,
         # ... 其他仓库 ...
-        "my-org/my-app": SPECS_MY_APP, # 在此处添加您的仓库
+        "go-gorm/gorm": SPECS_GORM,
     }
-
-    # 如果测试输出非标准，您可能还需要添加日志解析器
-    # 但对于 `go test`，现有的 `parse_log_gotest` 应该可以工作。
     ```
 
-### 生成测试数据的步骤：
+3.  **编辑 `swebench/harness/log_parsers/go.py`:**
+    确保 `go-gorm/gorm` 也被添加到了 `MAP_REPO_TO_PARSER_GO` 字典中，这样测试日志才能被正确解析。
 
-要全面了解测试结果，您需要在 `base_commit` 上使用和不使用补丁的情况下运行评估工具链。然后将这两次运行的结果结合起来，以确定哪些测试在补丁前失败但在补丁后通过（`fail_to_pass`），以及哪些测试在两种情况下都通过（`pass_to_pass`）。工具链尚无自动执行此操作的单个命令，因此您需要创建一个脚本来协调这些运行。
+    ```python
+    # 在 swebench/harness/log_parsers/go.py 中
+    MAP_REPO_TO_PARSER_GO = {
+        # ... 其他仓库 ...
+        "go-gorm/gorm": parse_log_gotest,
+    }
+    ```
 
-单个任务实例的一般流程是：
+### 步骤 2：使用 GitHub Actions 运行 pre-patch 和 post-patch 测试
 
-1.  **在 `base_commit` 上运行测试（补丁前）：** 执行 `run_evaluation.py` 而不应用任何补丁，以确定测试的初始状态。这将告诉您哪些测试失败了。
-2.  **使用黄金补丁运行测试（补丁后）：** 再次执行 `run_evaluation.py`，但这次提供您收集的任务实例中的 `patch`。这将显示修复后哪些测试通过了。
-3.  **合并结果：** 比较两次运行的结果，以填充最终数据集实例的 `fail_to_pass` 和 `pass_to_pass` 字段。
+为了确定哪些测试是从失败变为通过，您需要为每个任务实例运行两次评估：一次不应用补丁（pre-patch），一次应用黄金补丁（post-patch）。新创建的 `evaluate-swe-instance.yml` 工作流可以自动化此过程。
+
+1.  **前往 GitHub Actions 页面** 并找到名为 "Evaluate SWE-bench Instance" 的新工作流。
+2.  **运行 Pre-Patch 测试**:
+    -   点击 "Run workflow"。
+    -   **Repository name**: `go-gorm/gorm`
+    -   **Instance ID**: 输入您想测试的 PR 编号 (例如, `6850`)。
+    -   **Path to the task instances JSONL file**: 确保文件名与您提交到仓库的文件名一致 (例如, `gorm-task-instances.jsonl`)。
+    -   **Patch type**: 选择 `none`。
+    -   运行工作流。运行结束后，下载生成的 `logs-INSTANCE_ID-none` 工件。
+3.  **运行 Post-Patch 测试**:
+    -   再次点击 "Run workflow"。
+    -   使用完全相同的参数，但这次将 **Patch type** 设置为 `gold`。
+    -   运行工作流并下载 `logs-INSTANCE_ID-gold` 工件。
+
+### 步骤 3：分析日志并构建最终数据集
+
+现在您有了两个日志文件压缩包。解压它们，并在 `test_output.txt` 文件中查看测试结果。
+
+1.  **分析 `none` (Pre-Patch) 日志**: 打开 `...-none` 日志中的 `test_output.txt`。找到所有 `--- FAIL` 的测试用例。这些是初始状态下失败的测试。
+2.  **分析 `gold` (Post-Patch) 日志**: 打开 `...-gold` 日志中的 `test_output.txt`。找到所有 `--- PASS` 的测试用例。
+3.  **确定 `fail_to_pass` 和 `pass_to_pass`**:
+    -   **`fail_to_pass`**: 在 `none` 日志中失败，但在 `gold` 日志中通过的测试列表。
+    -   **`pass_to_pass`**: 在 `none` 和 `gold` 日志中都通过的测试列表。
+4.  **创建最终的 `.jsonl` 文件**:
+    手动创建一个新的 `.jsonl` 文件。复制原始任务实例的 JSON 对象，并添加或填充 `fail_to_pass` 和 `pass_to_pass` 键，值为您在上一步中确定的测试用例名称列表。
+
+对您 `gorm-task-instances.jsonl` 文件中的每一个任务实例重复以上步骤，即可创建出完整的 SWE-bench 评估数据集。
 
 ---
 
