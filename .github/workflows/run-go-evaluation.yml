@@ -27,10 +27,11 @@ jobs:
     - name: Read instance info
       id: instance_info
       run: |
-        import json
+        import json, os
         with open('${{ env.TASK_FILE_PATH }}', 'r') as f:
             instance = json.load(f)
-            print(f"::set-output name=instance_id::{instance['instance_id']}")
+        with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+            fh.write(f"instance_id={instance['instance_id']}\n")
       shell: python
 
     - name: Run Evaluation (pre-patch)
@@ -43,7 +44,8 @@ jobs:
           --instance_ids "${{ steps.instance_info.outputs.instance_id }}" \
           --predictions_path prediction-none.jsonl \
           --run_id "${{ github.run_id }}-${{ steps.instance_info.outputs.instance_id }}-none" \
-          --timeout 900
+          --timeout 900 \
+          --namespace none
     
     - name: Upload Logs (pre-patch)
       if: always()
@@ -62,7 +64,8 @@ jobs:
           --instance_ids "${{ steps.instance_info.outputs.instance_id }}" \
           --predictions_path gold \
           --run_id "${{ github.run_id }}-${{ steps.instance_info.outputs.instance_id }}-gold" \
-          --timeout 900
+          --timeout 900 \
+          --namespace none
           
     - name: Upload Logs (post-patch/gold)
       if: always()

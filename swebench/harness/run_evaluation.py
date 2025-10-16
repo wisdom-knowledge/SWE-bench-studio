@@ -163,27 +163,30 @@ def run_instance(
         )
         copy_to_container(container, patch_file, PurePosixPath(DOCKER_PATCH))
 
-        # Attempt to apply patch to container (TODO: FIX THIS)
-        applied_patch = False
-        for git_apply_cmd in GIT_APPLY_CMDS:
-            val = container.exec_run(
-                f"{git_apply_cmd} {DOCKER_PATCH}",
-                workdir=DOCKER_WORKDIR,
-                user=DOCKER_USER,
-            )
-            if val.exit_code == 0:
-                logger.info(f"{APPLY_PATCH_PASS}:\n{val.output.decode(UTF8)}")
-                applied_patch = True
-                break
-            else:
-                logger.info(f"Failed to apply patch to container: {git_apply_cmd}")
-        if not applied_patch:
-            logger.info(f"{APPLY_PATCH_FAIL}:\n{val.output.decode(UTF8)}")
-            raise EvaluationError(
-                instance_id,
-                f"{APPLY_PATCH_FAIL}:\n{val.output.decode(UTF8)}",
-                logger,
-            )
+        # Attempt to apply model patch to container
+        applied_patch = True
+        # If the prediction patch is empty, skip applying and proceed with test_patch only
+        if pred.get(KEY_PREDICTION) not in ("", None):
+            applied_patch = False
+            for git_apply_cmd in GIT_APPLY_CMDS:
+                val = container.exec_run(
+                    f"{git_apply_cmd} {DOCKER_PATCH}",
+                    workdir=DOCKER_WORKDIR,
+                    user=DOCKER_USER,
+                )
+                if val.exit_code == 0:
+                    logger.info(f"{APPLY_PATCH_PASS}:\n{val.output.decode(UTF8)}")
+                    applied_patch = True
+                    break
+                else:
+                    logger.info(f"Failed to apply patch to container: {git_apply_cmd}")
+            if not applied_patch:
+                logger.info(f"{APPLY_PATCH_FAIL}:\n{val.output.decode(UTF8)}")
+                raise EvaluationError(
+                    instance_id,
+                    f"{APPLY_PATCH_FAIL}:\n{val.output.decode(UTF8)}",
+                    logger,
+                )
 
         # Get git diff before running eval script
         git_diff_output_before = (
@@ -455,19 +458,8 @@ def get_dataset_from_preds(
         print(f"{len(completed_ids)} instances already run, skipping...")
         dataset = [i for i in dataset if i[KEY_INSTANCE_ID] not in completed_ids]
 
-    empty_patch_ids = {
-        k
-        for k, v in predictions.items()
-        if v[KEY_PREDICTION] == "" or v[KEY_PREDICTION] is None
-    }
-
-    # filter dataset to only instances with predictions
-    dataset = [
-        i
-        for i in dataset
-        if i[KEY_INSTANCE_ID] in prediction_ids
-        and i[KEY_INSTANCE_ID] not in empty_patch_ids
-    ]
+    # filter dataset to only instances with predictions (allow empty patches for baseline runs)
+    dataset = [i for i in dataset if i[KEY_INSTANCE_ID] in prediction_ids]
     return dataset
 
 

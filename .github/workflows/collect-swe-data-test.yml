@@ -3,7 +3,7 @@ name: Collect SWE-bench Data
 on:
   push:
     branches:
-      - test
+      - feat/go
   workflow_dispatch:
     inputs:
       repo_name:
@@ -36,7 +36,7 @@ jobs:
       env:
         # 💡 在这里硬编码你的测试参数
         GITHUB_TOKENS: ${{ secrets.GITHUB_TOKEN }}
-        TEST_REPO_NAME: "go-gorm/gorm"  # <--- 修改点 1：设置要测试的仓库名
+        TEST_REPO_NAME: "json-iterator/go"  # <--- 修改点 1：设置要测试的仓库名
         TEST_MAX_PULLS: "5000"           # <--- 修改点 2：设置一个测试用的最大 PR 数量（可选）
       run: |
         # 准备命令行参数
