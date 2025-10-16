@@ -39,4 +39,5 @@ MAP_REPO_TO_PARSER_GO = {
     "gohugoio/hugo": parse_log_gotest,
     "gin-gonic/gin": parse_log_gotest,
     "go-gorm/gorm": parse_log_gotest,
+    "json-iterator/go": parse_log_gotest,
 }

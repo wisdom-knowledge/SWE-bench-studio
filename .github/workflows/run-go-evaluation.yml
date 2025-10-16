@@ -9,7 +9,7 @@ jobs:
   evaluate:
     runs-on: ubuntu-latest
     env:
-      TASK_FILE_PATH: data-go/gorm/tasks/go-gorm__gorm-7492.jsonl
+      TASK_FILE_PATH: data-go/json-iterator/tasks/json-iterator__go-128.jsonl
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
