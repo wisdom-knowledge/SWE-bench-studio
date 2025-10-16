@@ -1,3 +1,5 @@
+import re
+
 from swebench.harness.constants import (
     END_TEST_OUTPUT,
     MAP_REPO_VERSION_TO_SPECS,
@@ -9,10 +11,48 @@ from swebench.harness.utils import get_modified_files
 # MARK: Test Command Creation Functions
 
 
+def _resolve_specs_key(instance) -> str:
+    """
+    Resolve the key used to index MAP_REPO_VERSION_TO_SPECS[repo] for this instance.
+
+    Priority:
+    1) instance["version"] if present and in map
+    2) instance["instance_id"] if in map
+    3) instance["pull_number"] (as str) if in map
+    4) numeric suffix of instance_id if in map
+    """
+    repo = instance["repo"]
+    repo_map = MAP_REPO_VERSION_TO_SPECS[repo]
+
+    version = instance.get("version")
+    if version is not None and version in repo_map:
+        return version
+
+    instance_id = instance.get("instance_id")
+    if instance_id in repo_map:
+        return instance_id
+
+    pull_number = instance.get("pull_number")
+    if pull_number is not None:
+        pull_str = str(pull_number)
+        if pull_str in repo_map:
+            return pull_str
+
+    if instance_id:
+        match = re.search(r"(\d+)$", instance_id)
+        if match:
+            suffix = match.group(1)
+            if suffix in repo_map:
+                return suffix
+
+    raise KeyError(
+        f"Unable to resolve specs key for repo {repo} and instance {instance_id}"
+    )
+
+
 def get_test_cmds(instance) -> list:
-    test_cmd = MAP_REPO_VERSION_TO_SPECS[instance["repo"]][instance["version"]][
-        "test_cmd"
-    ]
+    key = _resolve_specs_key(instance)
+    test_cmd = MAP_REPO_VERSION_TO_SPECS[instance["repo"]][key]["test_cmd"]
     return [test_cmd] if isinstance(test_cmd, str) else test_cmd
 
 

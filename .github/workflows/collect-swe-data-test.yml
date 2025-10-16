@@ -3,7 +3,7 @@ name: Collect SWE-bench Data
 on:
   push:
     branches:
-      - feat/go
+      - test
   workflow_dispatch:
     inputs:
       repo_name:

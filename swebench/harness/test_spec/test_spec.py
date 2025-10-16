@@ -22,6 +22,7 @@ from swebench.harness.test_spec.create_scripts import (
     make_env_script_list,
     make_eval_script_list,
 )
+from swebench.harness.test_spec.utils import _resolve_specs_key
 
 
 @dataclass
@@ -206,7 +207,9 @@ def make_test_spec(
 
     env_name = "testbed"
     repo_directory = f"/{env_name}"
-    specs = MAP_REPO_VERSION_TO_SPECS[repo][version]
+    # Resolve the correct key into specs map (supports Go instances without version)
+    specs_key = _resolve_specs_key(instance)
+    specs = MAP_REPO_VERSION_TO_SPECS[repo][specs_key]
     docker_specs = specs.get("docker_specs", {})
 
     repo_script_list = make_repo_script_list(
@@ -222,7 +225,8 @@ def make_test_spec(
         env_script_list=env_script_list,
         repo_script_list=repo_script_list,
         eval_script_list=eval_script_list,
-        version=version,
+        # Store the resolved specs key as version for downstream logging/keys
+        version=specs_key,
         arch=arch,
         FAIL_TO_PASS=fail_to_pass,
         PASS_TO_PASS=pass_to_pass,
