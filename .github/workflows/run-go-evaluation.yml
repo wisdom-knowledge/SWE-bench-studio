@@ -9,7 +9,7 @@ jobs:
   evaluate:
     runs-on: ubuntu-latest
     env:
-      TASK_FILE_PATH: data-go/json-iterator/tasks/json-iterator__go-477.jsonl
+      TASK_FILE_PATH: data-go/json-iterator/tasks/json-iterator__go-441.jsonl
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4

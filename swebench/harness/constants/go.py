@@ -264,6 +264,13 @@ SPECS_JSONITERATOR = {
         ],
         "test_cmd": ['go test -v -count=1 -run "^(Test_read_uint64_invalid|Test_read_int32_array|Test_read_int64_array|Test_wrap_int|Test_write_val_int|Test_float_as_int|TestIterator_ReadInt_chunkedInput)$" ./misc_tests/'],
     },
+    "json-iterator__go-441": {
+        "docker_specs": {"go_version": "1.21.13"},
+        "install": [
+            "go mod tidy"
+        ],
+        "test_cmd": ['go test -v -count=1 -run "^(Benchmark_stream_encode_big_object|TestEncodeObject|Test_flush_buffer_should_stop_grow_buffer|Test_writeByte_should_grow_buffer|Test_writeBytes_should_grow_buffer|Test_writeIndention_should_grow_buffer|Test_writeRaw_should_grow_buffer|Test_writeString_should_grow_buffer)$" . ./benchmarks/'],
+    },
 }
 
 
