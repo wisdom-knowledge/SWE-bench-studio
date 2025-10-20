@@ -902,6 +902,16 @@ SPECS_PYDICOM.update(
 
 SPECS_HUMANEVAL = {k: {"python": "3.9", "test_cmd": "python"} for k in ["1.0"]}
 
+SPECS_BROWSER_USE = {
+    k: {
+        "python": "3.12",
+        "install": "uv sync --dev --all-extras && uvx playwright install chromium --with-deps --no-shell",
+        "pip_packages": ["uv"],
+        "test_cmd": "uv run pytest -rA",
+    }
+    for k in ["0.5.9", "0.5.5", "0.1.36"]
+}
+
 # Constants - Task Instance Instllation Environment
 MAP_REPO_VERSION_TO_SPECS_PY = {
     "astropy/astropy": SPECS_ASTROPY,
@@ -924,6 +934,7 @@ MAP_REPO_VERSION_TO_SPECS_PY = {
     "sqlfluff/sqlfluff": SPECS_SQLFLUFF,
     "swe-bench/humaneval": SPECS_HUMANEVAL,
     "sympy/sympy": SPECS_SYMPY,
+    "browser-use/browser-use": SPECS_BROWSER_USE,
 }
 
 # Constants - Repository Specific Installation Instructions
